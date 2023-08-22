@@ -16,18 +16,28 @@ class Transport implements Swift_Transport {
     protected $apiUrl = 'https://api.boldem.cz/v1/';
 
 	/**
-	 * The Boldem API key.
+	 * The Boldem Client ID.
 	 *
 	 * @var string
 	 */
-	protected $apiKey;
+	protected $clientId;
 
     /**
-	 * The Boldem baseCrypt.
+	 * The Boldem Secret Client Key.
 	 *
 	 * @var string
 	 */
-	protected $baseCrypt;
+	protected $secretClientKey;
+
+    /**
+	 * The Boldem Secretaccess_token.
+	 * For every instance access_token is obtained from Bolder API from ClientId and secretClientKey. 
+	 * The access_token lifetime is 3600s, meaning this class uses it for whole lifetime. 
+	 *
+	 * @var string
+	 */
+	private $_access_token;
+
 
 	/**
 	 * A set of default headers to attach to every message
@@ -47,9 +57,9 @@ class Transport implements Swift_Transport {
 	 * @param  string  $serverToken The API token for the server from which you will send mail.
 	 * @return void
 	 */
-	public function __construct($baseCrypt, $apiKey, array $defaultHeaders = []) {
-		$this->baseCrypt = $baseCrypt;
-        $this->apiKey = $apiKey;        
+	public function __construct($clientId, $secretClientKey, array $defaultHeaders = []) {
+		$this->clientId = $clientId;
+        $this->secretClientId = $secretClientId;        
 		$this->defaultHeaders = $defaultHeaders;
 		$this->version = phpversion();
 		$this->os = PHP_OS;
@@ -85,6 +95,7 @@ class Transport implements Swift_Transport {
 	public function ping() {
 		return true;
 	}
+	
 
 	/**
 	 * {@inheritdoc}
@@ -102,14 +113,14 @@ class Transport implements Swift_Transport {
 		$v = $this->version;
 		$o = $this->os;
 
-        $payload = ['email' => $this->getMessagePayload($message)];
-		$response = $client->request('POST', $this->apiUrl . $this->baseCrypt . '/transactionalEmails', [
+        $payload = $this->getMessagePayload($message);
+		$response = $client->request('POST', $this->apiUrl . 'transactionalEmails', [
 			'headers' => [
-                'Authorization' => ['Basic '.$this->apiKey],
+                'Authorization' => ['Bearer '.$this->getAccessToken()],
                 'Accept' => 'application/json;charset:utf-8',
 				'Content-Type' => 'application/json',
                 'X-Requested-With' => 'XMLHttpRequest',
-				'User-Agent' => "mailkomplet-swiftmailer (PHP Version: $v, OS: $o)",
+				'User-Agent' => "boldem-swiftmailer (PHP Version: $v, OS: $o)",
 			],
 			'json' => $payload,
 			'http_errors' => false,
@@ -196,7 +207,7 @@ class Transport implements Swift_Transport {
 
         $msgFrom = $message->getFrom();
         foreach($msgFrom as $k=>$v) {
-            $payload['fromAddress'] = $k;
+            $payload['from'] = $k;
             if ($v!='') {
                 $payload['fromDisplayName'] = $v;
             }
@@ -207,19 +218,19 @@ class Transport implements Swift_Transport {
         $msgTo = $message->getTo();
         if (is_array($msgTo)) {
             foreach($msgTo as $k=>$v) {
-                $to[] = ['address' => $k];
+                $to[] = $v!='' ? ['address' => $k, 'displayName' => $v] : ['address' => $k];
             }
         }
         $msgCc = $message->getCc();
         if (is_array($msgCc)) {
             foreach($msgCc as $k=>$v) {
-                $to[] = ['address' => $k];
+                $to[] = $v!='' ? ['address' => $k, 'displayName' => $v] : ['address' => $k];
             }
         }
         $msgBcc = $message->getBcc();
         if (is_array($msgBcc)) {
             foreach($msgBcc as $k=>$v) {
-                $to[] = ['address' => $k];
+                $to[] = $v!='' ? ['address' => $k, 'displayName' => $v] : ['address' => $k];
             }
         }
         
@@ -229,6 +240,9 @@ class Transport implements Swift_Transport {
         if (is_array($msgReplyTo)) {         
             foreach($msgReplyTo as $k=>$v) {
                 $payload['replyTo'] = $k;
+				if ($v!='') {
+					$payload['replyToDisplayName'] = $v;
+				}
             }
         }
 	}
@@ -369,12 +383,31 @@ class Transport implements Swift_Transport {
 	}
 
 	/**
-	 * Get the API key being used by the transport.
+	 * Get the Client ID being used by the transport.
 	 *
 	 * @return string
 	 */
-	public function getApiKey() {
-		return $this->apiKey;
+	public function getClientId() {
+		return $this->clientId;
+	}
+
+	/**
+	 * Set the Client ID being used by the transport.
+	 *
+	 * @param  string  $serverToken
+	 * @return void
+	 */
+	public function setApiKey($clientId) {
+		return $this->clientId = $clientId;
+	}
+    
+	/**
+	 * Get the API Secret Client Key being used by the transport.
+	 *
+	 * @return string
+	 */
+	public function getSecretClientKey() {
+		return $this->secretClientKey;
 	}
 
 	/**
@@ -383,28 +416,55 @@ class Transport implements Swift_Transport {
 	 * @param  string  $serverToken
 	 * @return void
 	 */
-	public function setApiKey($apiKey) {
-		return $this->apiKey = $apiKey;
-	}
-    
-	/**
-	 * Get the API baseCrypt being used by the transport.
-	 *
-	 * @return string
-	 */
-	public function getBaseCrypt() {
-		return $this->baseCrypt;
+	public function setSecretClientKey($secretClientKey) {
+		return $this->secretClientKey = $secretClientKey;
 	}
 
 	/**
-	 * Set the API key being used by the transport.
-	 *
-	 * @param  string  $serverToken
+	 * Set access_token for current session
+	 * Direct token setup is rather not expected, usually it is obtained from Boldem API
+	 * @param  string  $access_token
 	 * @return void
 	 */
-	public function setBaseCrypt($baseCrypt) {
-		return $this->baseCrypt = $baseCrypt;
+	public function setAccessToken($access_token) {
+		$this->_access_token = $access_token;
 	}
-    
+
+	/**
+	 * Get access_token for API usage.
+	 * If not set, obtain from Boldem API, return saved otherwise
+	 * 
+	 * @return string
+	 */
+	public function getAccessToken() {
+		if (!$this->_access_token) {
+			$this->obtainBearer();
+		}
+		return $this->_access_token;
+	}
+
+    /**
+     * Obtain Bearer from Boldem API and store to object
+     */
+    public function obtainBearer()
+    {
+        $data = [
+            'client_id' => $this->clientId,
+            'client_secret' => $this->sercretClientKey,
+        ];
+
+        $res = $this->client->post($this->apiUrl . "oauth", [
+            'form_params' => $data
+        ]);
+
+
+        $logins = json_decode($res->getBody(), true);
+        if (isset($logins['access_token'])) {
+            $expires = strtotime($logins['expires_in']);
+			$this->_access_token = $logins['access_token'];
+            return true;
+        }
+        return false;
+    }	
 
 }
