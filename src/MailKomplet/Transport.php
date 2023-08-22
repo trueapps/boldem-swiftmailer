@@ -1,6 +1,6 @@
 <?php
 
-namespace MailKomplet;
+namespace Boldem;
 
 use GuzzleHttp\Client;
 use Swift_Events_EventListener;
@@ -13,17 +13,17 @@ class Transport implements Swift_Transport {
 	protected $version = "Unknown PHP version";
 	protected $os = "Unknown OS";
     
-    protected $apiUrl = 'https://api.mail-komplet.cz/api/';
+    protected $apiUrl = 'https://api.boldem.cz/v1/';
 
 	/**
-	 * The MailKomplet API key.
+	 * The Boldem API key.
 	 *
 	 * @var string
 	 */
 	protected $apiKey;
 
     /**
-	 * The MailKomplet baseCrypt.
+	 * The Boldem baseCrypt.
 	 *
 	 * @var string
 	 */
@@ -42,7 +42,7 @@ class Transport implements Swift_Transport {
 	protected $_eventDispatcher;
 
 	/**
-	 * Create a new MailKomplet transport instance.
+	 * Create a new Boldem transport instance.
 	 *
 	 * @param  string  $serverToken The API token for the server from which you will send mail.
 	 * @return void
@@ -165,7 +165,7 @@ class Transport implements Swift_Transport {
 	}
 
 	/**
-	 * Convert a Swift Mime Message to a MailKomplet Payload.
+	 * Convert a Swift Mime Message to a Boldem Payload.
 	 *
 	 * @param  Swift_Mime_SimpleMessage  $message
 	 * @return object

@@ -1,13 +1,17 @@
-# mailkomplet-swiftmailer 
+client id: 3bd71a5afe584e9bad12b743aec5a5da
+secrect client key: 7b9c03636ce849e380462ea780b463ec552a161ed5fe45d2898cd183e1f650b5
 
-An Swiftmailer Transport for MailKomplet.
 
-Send mail through MailKomplet from your favorite PHP frameworks!
+# boldem-swiftmailer 
+
+An Swiftmailer Transport for Boldem.
+
+Send mail through Boldem from your favorite PHP frameworks!
 
 ##### 1. Include this package in your project:
 
 ```bash
-composer require trueapps/mailkomplet-swiftmailer
+composer require trueapps/boldem-swiftmailer
 ```
 ##### 2. Use the transport to send a message:
 
@@ -16,11 +20,11 @@ composer require trueapps/mailkomplet-swiftmailer
 //import the transport from the standard composer directory:
 require_once('./vendor/autoload.php');
 
-$transport = new \MailKomplet\Transport('<BASE_CRYPT>','<APIKEY>');
+$transport = new \Boldem\Transport('<BASE_CRYPT>','<APIKEY>');
 $mailer = new Swift_Mailer($transport);
 
 //Instantiate the message you want to send.
-$message = (new Swift_Message('Hello from MailKomplet!'))
+$message = (new Swift_Message('Hello from Boldem!'))
   ->setFrom(['john@example.com' => 'John Doe'])
   ->setTo(['jane@example.com'])
   ->setBody('<b>A really important message from our partners.</b>', 'text/html')
@@ -37,13 +41,13 @@ $mailer->send($message);
 ?>
 ```
 
-##### 3. Throw exceptions on MailKomplet api errors:
+##### 3. Throw exceptions on Boldem api errors:
 
 ```php
-$transport = new \MailKomplet\Transport('<BASE_CRYPT>','<APIKEY>');
-$transport->registerPlugin(new \MailKomplet\ThrowExceptionOnFailurePlugin());
+$transport = new \Boldem\Transport('<BASE_CRYPT>','<APIKEY>');
+$transport->registerPlugin(new \Boldem\ThrowExceptionOnFailurePlugin());
 
-$message = new Swift_Message('Hello from mailKomplet!');
+$message = new Swift_Message('Hello from Boldem!');
 $mailer->send($message); // Exception is throw when response !== 200
 ```
 
@@ -54,9 +58,9 @@ You can set default headers at Transport-level, to be set on every message, unle
 ```php
 $defaultHeaders = ['X-MK-Tag' => 'my-tag'];
 
-$transport = new \MailKomplet\Transport('<BASE_CRYPT>','<APIKEY>', $defaultHeaders);
+$transport = new \Boldem\Transport('<BASE_CRYPT>','<APIKEY>', $defaultHeaders);
 
-$message = new Swift_Message('Hello from MailKomplet!');
+$message = new Swift_Message('Hello from Boldem!');
 
 // Overwriting default headers
 $message->getHeaders()->addTextHeader('X-MK-Tag', 'custom-tag');
@@ -64,4 +68,4 @@ $message->getHeaders()->addTextHeader('X-MK-Tag', 'custom-tag');
 
 ##### Notes:
 
-- The Transport uses the [MailKomplet API](https://api.mail-komplet.cz) internally to send mail, via the /transactionalEmails endpoint.
+- The Transport uses the [Boldem API](https://api.boldem.cz) internally to send mail, via the /transactional-emails endpoint.

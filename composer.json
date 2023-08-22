@@ -1,6 +1,6 @@
 {
-    "name": "trueapps/mailkomplet-swiftmailer",
-    "description": "Swift Transport implementation for mail-komplet.cz API.",
+    "name": "trueapps/boldem-swiftmailer",
+    "description": "Swift Transport implementation for boldem.cz API.",
     "license": "MIT",
     "authors": [
         {

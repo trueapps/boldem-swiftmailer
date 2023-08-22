@@ -1,6 +1,6 @@
 <?php
 
-namespace MailKomplet;
+namespace Boldem;
 
 class ThrowExceptionOnFailurePlugin implements \Swift_Events_ResponseListener
 {

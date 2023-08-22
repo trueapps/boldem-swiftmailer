@@ -3,11 +3,11 @@
 require_once('./vendor/autoload.php');
 
 
-$transport = new \MailKomplet\Transport('<BASE_CRYPT>','<APIKEY>');
+$transport = new \Boldem\Transport('<BASE_CRYPT>','<APIKEY>');
 $mailer = new Swift_Mailer($transport);
 
 //Instantiate the message you want to send.
-$message = (new Swift_Message('Hello from MailKomplet!'))
+$message = (new Swift_Message('Hello from Boldem!'))
   ->setFrom(['john@example.com' => 'John Doe'])
   ->setTo(['jane@example.com'])
   ->setBody('<b>A really important message from our partners.</b>', 'text/html')
