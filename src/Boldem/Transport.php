@@ -3,6 +3,8 @@
 namespace Boldem;
 
 use GuzzleHttp\Client;
+use GuzzleHttp\HandlerStack;
+use GuzzleHttp\Middleware;
 use Swift_Events_EventListener;
 use Swift_Mime_MimePart;
 use Swift_Mime_SimpleMessage;
@@ -13,7 +15,7 @@ class Transport implements Swift_Transport {
 	protected $version = "Unknown PHP version";
 	protected $os = "Unknown OS";
     
-    protected $apiUrl = 'https://api.boldem.cz/v1/';
+    protected $apiUrl = 'https://api.boldem.cz/api/';
 
 	/**
 	 * The Boldem Client ID.
@@ -51,6 +53,14 @@ class Transport implements Swift_Transport {
 	 */
 	protected $_eventDispatcher;
 
+
+	/**
+	 * GuzzleHttp client
+	 */
+	public $client;
+
+	private $container;
+    	
 	/**
 	 * Create a new Boldem transport instance.
 	 *
@@ -59,12 +69,48 @@ class Transport implements Swift_Transport {
 	 */
 	public function __construct($clientId, $secretClientKey, array $defaultHeaders = []) {
 		$this->clientId = $clientId;
-        $this->secretClientId = $secretClientId;        
+        $this->secretClientKey = $secretClientKey;        
 		$this->defaultHeaders = $defaultHeaders;
 		$this->version = phpversion();
 		$this->os = PHP_OS;
 		$this->_eventDispatcher = \Swift_DependencyContainer::getInstance()->lookup('transport.eventdispatcher');
+		$this->configClient();
 	}
+
+	/**
+     * Setup guzzle HTTP client
+     */
+    public function configClient() {
+        $config = array();
+		if ($this->_access_token) {
+        	$config['headers']['Authorization'] = "Bearer ". $this->_access_token;
+		}
+        $config['headers']['Accept'] = "application/json;charset:utf-8";
+        $config['headers']['Content-Type'] = "application/json";
+        $config['headers']['X-Requested-With'] = "XMLHttpRequest";
+        $config['headers']['User-Agent'] = "trueapps BoldemApi client";
+        
+        $this->container = [];
+        $history = Middleware::history($this->container);
+        $stack = HandlerStack::create();
+        $stack->push($history);
+
+        $config['verify'] = false;
+        $config['exceptions'] = false;
+        $config['handler'] = $stack;
+        $this->client = new Client($config);                
+    }
+
+    public function getHistory()
+    {
+        $ret = '';
+        foreach ($this->container as $transaction) {
+            $ret .= print_r($transaction['request']->getHeaders(), true) . '\n';
+            $ret .= (string) $transaction['request']->getBody() . '\n';
+            $ret .= (string) $transaction['response']->getBody();
+        }
+        return $ret;
+    }	
 
 	/**
 	 * {@inheritdoc}
@@ -101,8 +147,6 @@ class Transport implements Swift_Transport {
 	 * {@inheritdoc}
 	 */
 	public function send(Swift_Mime_SimpleMessage $message, &$failedRecipients = null) {
-		$client = $this->getHttpClient();
-
 		if ($sendEvent = $this->_eventDispatcher->createSendEvent($this, $message)) {
 			$this->_eventDispatcher->dispatchEvent($sendEvent, 'beforeSendPerformed');
 			if ($sendEvent->bubbleCancelled()) {
@@ -110,24 +154,16 @@ class Transport implements Swift_Transport {
 			}
 		}
 
-		$v = $this->version;
-		$o = $this->os;
-
         $payload = $this->getMessagePayload($message);
-		$response = $client->request('POST', $this->apiUrl . 'transactionalEmails', [
+		$response = $this->client->request('POST', $this->apiUrl . 'transactionalemails', [
 			'headers' => [
                 'Authorization' => ['Bearer '.$this->getAccessToken()],
-                'Accept' => 'application/json;charset:utf-8',
-				'Content-Type' => 'application/json',
-                'X-Requested-With' => 'XMLHttpRequest',
-				'User-Agent' => "boldem-swiftmailer (PHP Version: $v, OS: $o)",
 			],
 			'json' => $payload,
 			'http_errors' => false,
             'debug' => false,
 		]);
 
-        
 		$success = $response->getStatusCode() === 200;
 
 		if ($responseEvent = $this->_eventDispatcher->createResponseEvent($this, $response->getBody()->__toString(), $success)) {
@@ -315,10 +351,7 @@ class Transport implements Swift_Transport {
 				if ($value instanceof \Swift_Mime_Headers_UnstructuredHeader ||
 					$value instanceof \Swift_Mime_Headers_OpenDKIMHeader) {
 					if($fieldName != 'X-MK-Tag'){
-						array_push($headers, [
-							"Name" => $fieldName,
-							"Value" => $value->getValue(),
-						]);
+						$headers[$fieldName] = $value->getValue();
 					}else{
 						$payload["Tag"] = $value->getValue();
 					}
@@ -326,16 +359,9 @@ class Transport implements Swift_Transport {
 					$value instanceof \Swift_Mime_Headers_IdentificationHeader ||
 					$value instanceof \Swift_Mime_Headers_ParameterizedHeader ||
 					$value instanceof \Swift_Mime_Headers_PathHeader) {
-					array_push($headers, [
-						"Name" => $fieldName,
-						"Value" => $value->getFieldBody(),
-					]);
-
+					$headers[$fieldName] = $value->getFieldBody();
 					if ($value->getFieldName() == 'Message-ID') {
-						array_push($headers, [
-							"Name" => 'X-MK-KeepID',
-							"Value" => 'true',
-						]);
+						$headers['X-MK-KeepID'] = true;
 					}
 				}
 			}
@@ -356,10 +382,7 @@ class Transport implements Swift_Transport {
 			if ($header === 'X-MK-Tag') {
 				$payload["Tag"] = $value;
 			} else {
-				array_push($headers, [
-					"Name" => $header,
-					"Value" => $value,
-				]);
+				$headers[$header] = $value;
 			}
 		}
 
@@ -448,20 +471,25 @@ class Transport implements Swift_Transport {
      */
     public function obtainBearer()
     {
+		$client = $this->client;
         $data = [
             'client_id' => $this->clientId,
-            'client_secret' => $this->sercretClientKey,
+            'client_secret' => $this->secretClientKey,
         ];
 
-        $res = $this->client->post($this->apiUrl . "oauth", [
-            'form_params' => $data
-        ]);
-
+		$res = $client->request('POST', $this->apiUrl . 'oauth', [
+			'headers' => [
+			],
+			'json' => $data,
+			'http_errors' => false,
+            'debug' => false,
+		]);		
 
         $logins = json_decode($res->getBody(), true);
         if (isset($logins['access_token'])) {
             $expires = strtotime($logins['expires_in']);
 			$this->_access_token = $logins['access_token'];
+			$this->configClient();
             return true;
         }
         return false;

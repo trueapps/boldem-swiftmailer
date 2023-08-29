@@ -1,7 +1,3 @@
-client id: 3bd71a5afe584e9bad12b743aec5a5da
-secrect client key: 7b9c03636ce849e380462ea780b463ec552a161ed5fe45d2898cd183e1f650b5
-
-
 # boldem-swiftmailer 
 
 An Swiftmailer Transport for Boldem.
@@ -20,7 +16,7 @@ composer require trueapps/boldem-swiftmailer
 //import the transport from the standard composer directory:
 require_once('./vendor/autoload.php');
 
-$transport = new \Boldem\Transport('<BASE_CRYPT>','<APIKEY>');
+$transport = new \Boldem\Transport('<CLIENT_ID>','<SECRET_CLIENT_KEY>');
 $mailer = new Swift_Mailer($transport);
 
 //Instantiate the message you want to send.

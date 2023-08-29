@@ -3,7 +3,7 @@
 require_once('./vendor/autoload.php');
 
 
-$transport = new \Boldem\Transport('<BASE_CRYPT>','<APIKEY>');
+$transport = new \Boldem\Transport('<CLIENT_ID>','<SECRET_CLIENT_KEY>');
 $mailer = new Swift_Mailer($transport);
 
 //Instantiate the message you want to send.
