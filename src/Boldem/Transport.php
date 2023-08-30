@@ -361,7 +361,7 @@ class Transport implements Swift_Transport {
 					$value instanceof \Swift_Mime_Headers_PathHeader) {
 					$headers[$fieldName] = $value->getFieldBody();
 					if ($value->getFieldName() == 'Message-ID') {
-						$headers['X-MK-KeepID'] = true;
+						//$headers['X-MK-KeepID'] = true;
 					}
 				}
 			}
