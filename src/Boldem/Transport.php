@@ -24,12 +24,19 @@ class Transport implements Swift_Transport {
 	 */
 	protected $clientId;
 
-    /**
+        /**
 	 * The Boldem Secret Client Key.
 	 *
 	 * @var string
 	 */
 	protected $secretClientKey;
+
+        /**
+	 * Indicates bulk messages, see api.boldem.cz.
+	 *
+	 * @var bool
+	 */
+	public $isBulk = false;
 
     /**
 	 * The Boldem Secretaccess_token.
@@ -154,14 +161,14 @@ class Transport implements Swift_Transport {
 			}
 		}
 
-        $payload = $this->getMessagePayload($message);
+                $payload = $this->getMessagePayload($message);
 		$response = $this->client->request('POST', $this->apiUrl . 'transactionalemails', [
 			'headers' => [
-                'Authorization' => ['Bearer '.$this->getAccessToken()],
+                            'Authorization' => ['Bearer '.$this->getAccessToken()],
 			],
 			'json' => $payload,
 			'http_errors' => false,
-            'debug' => false,
+                        'debug' => false,
 		]);
 
 		$success = $response->getStatusCode() === 200;
@@ -228,6 +235,7 @@ class Transport implements Swift_Transport {
 			$this->processHeaders($payload, $message);
 		}
 
+                $payload['isBulk'] = $this->isBulk;
 		return $payload;
 	}
 
