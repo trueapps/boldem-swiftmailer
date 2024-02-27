@@ -38,6 +38,13 @@ class Transport implements Swift_Transport {
 	 */
 	public $isBulk = false;
 
+        /**
+	 * Number of recipients being sent in single API call
+	 *
+	 * @var int
+	 */
+	public $batchSize = 50;
+
     /**
 	 * The Boldem Secretaccess_token.
 	 * For every instance access_token is obtained from Bolder API from ClientId and secretClientKey. 
@@ -161,28 +168,38 @@ class Transport implements Swift_Transport {
 			}
 		}
 
-                $payload = $this->getMessagePayload($message);
-		$response = $this->client->request('POST', $this->apiUrl . 'transactionalemails', [
-			'headers' => [
-                            'Authorization' => ['Bearer '.$this->getAccessToken()],
-			],
-			'json' => $payload,
-			'http_errors' => false,
-                        'debug' => false,
-		]);
+                $payload = $this->getMessagePayload($message);                
+                /** Boldem API requires smaller recipients chunks, splitting list of recipients into chunks */
+                $recipients = $payload['to'];
+                $chunked_recipients = array_chunk($recipients, $this->batchSize);
+                
+                $allok = true;
+                foreach($chunked_recipients as $rec) {
+                    $payload['to'] = $rec;
+                    $response = $this->client->request('POST', $this->apiUrl . 'transactionalemails', [
+                            'headers' => [
+                                'Authorization' => ['Bearer '.$this->getAccessToken()],
+                            ],
+                            'json' => $payload,
+                            'http_errors' => false,
+                            'debug' => false,
+                    ]);
 
-		$success = $response->getStatusCode() === 200;
+                    $success = $response->getStatusCode() === 200;
+                    if (!$success) {
+                        $allok = false;
+                    }
+                
+                    if ($responseEvent = $this->_eventDispatcher->createResponseEvent($this, $response->getBody()->__toString(), $success)) {
+                            $this->_eventDispatcher->dispatchEvent($responseEvent, 'responseReceived');
+                    }
 
-		if ($responseEvent = $this->_eventDispatcher->createResponseEvent($this, $response->getBody()->__toString(), $success)) {
-			$this->_eventDispatcher->dispatchEvent($responseEvent, 'responseReceived');
-		}
-
-		if ($sendEvent) {
-			$sendEvent->setResult($success ? \Swift_Events_SendEvent::RESULT_SUCCESS : \Swift_Events_SendEvent::RESULT_FAILED);
-			$this->_eventDispatcher->dispatchEvent($sendEvent, 'sendPerformed');
-		}
-		
-		return $success
+                    if ($sendEvent) {
+                            $sendEvent->setResult($success ? \Swift_Events_SendEvent::RESULT_SUCCESS : \Swift_Events_SendEvent::RESULT_FAILED);
+                            $this->_eventDispatcher->dispatchEvent($sendEvent, 'sendPerformed');
+                    }
+                }
+		return $allok
 			? $this->getRecipientCount($message)
 			: 0;
 	}
